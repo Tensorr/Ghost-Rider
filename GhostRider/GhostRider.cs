@@ -37,7 +37,8 @@ namespace GhostRider
         }
 
         //Cancel skill if mob which we want to kill already attacked by another player.
-        // not working 
+        // not working ... 
+        // function never returns - BY DESIGN this is an independant infinte thread.
         public void CancelAttacksOnAnothersMobs()
         {
             while (true)
@@ -87,19 +88,20 @@ namespace GhostRider
         /// <param name="skillName">Nmae of Skill to Cast - Beware with the Spelling</param>
         /// <param name="cond">Cast only if this condition evaluates to true</param>
         /// <param name="selfTarget">Target myself ? T/F</param>
-        public void UseSkillIf(string skillName, bool cond = true, bool selfTarget = false)
+        public bool UseSkillIf(string skillName, bool cond = true, bool selfTarget = false)
         {
-            if (cond)
+            if (cond && skillCooldown(skillName)<=0L)
             {
                 try { 
                     UseSkillAndWait(skillName, selfTarget);
+                    return true; // too simple need to return true only on succesful cast
                     }
                 catch(Exception ex){
                     //LOG ?
                     //
                 }
             }
-
+            return false;
         }
         /// <summary>
         /// Executes a simple rotation on the recieved target.
@@ -108,77 +110,35 @@ namespace GhostRider
         /// <param name="targeCreature">Target to destroy (hopefully)</param>
         private void DoRotation(Creature targeCreature)
         {
-            if (!GetGroupStatus("GhostRider") || !me.isAlive()) return;
-            // Be careful with spelling
-            // SKILLS NEED TO BE ORDERED BY IMPORTANCE
-            // IE: 1st : Heal cond: me.hp <33f
-            // use: UseSkillIf if you need a  
+            var aaa = false; //trash value
 
-            UseSkillIf("Hell Spear");
-            UseSkillIf("Freezing Arrow");
-            UseSkillIf("Flamebolt");
-            
-
-        }
-
-        /*
-        public void PluginRun_old()
-        {
-            new Task(() => { CancelAttacksOnAnothersMobs(); }).Start(); //Starting new thread
-            RoundZone zone = new RoundZone(me.X, me.Y, 80); //Make new zone where we will farm. Its circle with center where your character stand at this moment with 80m radius.
-            SetGroupStatus("GhostRider", false); //Add checkbox to our character widget
-            while (true)
+            while (GetGroupStatus("GhostRider"))
             {
-                //If GhostRider checkbox enabled in widget and our character alive
-                if (GetGroupStatus("GhostRider") && me.isAlive())
-                {
-                    CheckBuffs();
-                    Creature bestMob = null;
-                    //if we have enouth mp and hp, or mobs want to kill us - try to find bestMob.
-                    if ((mpp() > 40 && hpp() > 75) || getAggroMobs().Count > 0)
-                        bestMob = GetBestNearestMob(zone);
-                    //if mob exists
-                    if (bestMob != null)
-                    {
-                        try
-                        {
-                            //while this mob alive and our character alive and checkbox in widget enabled
-                            while (bestMob != null && isAlive(bestMob) && isExists(bestMob) && GetGroupStatus("autoexp") && isAlive())
-                            {
-                                //if another player attack this mob before our character.
-                                if (bestMob.aggroTarget != me && bestMob.firstHitter != null && bestMob.firstHitter != me)
-                                {
-                                    bestMob = null;
-                                    break;
-                                }
+                if (!me.isAlive() || !me.target.isAlive()) return;  
+                // Be careful with spelling
+                // SKILLS NEED TO BE ORDERED BY IMPORTANCE
+                // IE: 1st : Heal cond: me.hp <33f
+                // use: UseSkillIf if you need a  
 
-                                //if we still dont attack our best mob, but another mob want to kill us
-                                if (bestMob.firstHitter == null && getAggroMobs().Count > 0 && bestMob != GetBestNearestMob(zone))
-                                    bestMob = GetBestNearestMob(zone);
+                //HEAL
+                if (UseSkillIf("Enervate", (me.hpp < 50)))
+                    if (UseSkillIf("Earthen Grip", (me.hpp < 50)))
+                        continue;
+                                
+                //CLEAN DEBUF
 
-                                //Target our mob, if necessary
-                                if (me.target != bestMob)
-                                    SetTarget(bestMob);
-                                //Turn to our mob, if necessary                                 
-                            }
+                //FIGHT
+                if (UseSkillIf("Hell Spear", (hpp(targeCreature) >= 33) && ((TargetsWithin(6) > 1) || (me.hpp <75))))
+                    aaa = UseSkillIf("Arc Lightning");
 
-                            //Try to pickup drop from mob, if drop available
-                            while (bestMob != null && !isAlive(bestMob) && isExists(bestMob) && bestMob.type == BotTypes.Npc && ((Npc)bestMob).dropAvailable && GetGroupStatus("autoexp") && isAlive())
-                            {
-                                if (me.dist(bestMob) > 3)
-                                    ComeTo(bestMob, 1);
-                                PickupAllDrop(bestMob);
-                            }
-                        }
-                        catch { }
+                aaa = UseSkillIf("Freezing Arrow");
+                aaa = UseSkillIf("Flamebolt");
 
-                    }
-                }
-                //Small delay, do not load the processor
-                Thread.Sleep(10);
+                //BUFF
+                aaa= UseSkillIf("Insulating Lens", (buffTime("Insulating Lens (Rank 1)") == 0 ));
+
             }
-        }
-        */ 
+       }
 
         public void LootMob(Creature bestMob)
         {
@@ -202,12 +162,12 @@ namespace GhostRider
         {
             //new Task(() => { CancelAttacksOnAnothersMobs(); }).Start(); //Starting new thread
             SetGroupStatus("GhostRider", false);        //Is this thing or or what ?
-            SetGroupStatus("Corpse Loot", false);      //Do we loot corpses or not ?
-            SetGroupStatus("Farm", false);            //Do i keep on killing mobs ?
+            SetGroupStatus("Corpse Loot", true);      //Do we loot corpses or not ?
+            SetGroupStatus("Farm", true);            //Do i keep on killing mobs ?
             while (true)
             {
-                //If GhostRider checkbox enabled in widget and our character alive
                 if (!GetGroupStatus("GhostRider") || !me.isAlive()) continue;
+                //If GhostRider checkbox enabled in widget and our character alive
                 //am i under attack (better way?) Or do i have someone targetted
                 if (getAggroMobs().Count > 0 || (me.target != null && isAttackable(me.target) && isAlive(me.target)))
                 {
@@ -215,7 +175,7 @@ namespace GhostRider
                     if (angle(me.target, me) > 45 && angle(me.target, me) < 315)
                         TurnDirectly(me.target);
 
-                    if (me.dist(me.target) < 8 && isAlive(me.target))
+                    if (me.dist(me.target) < 25 && isAlive(me.target))
                         DoRotation(me.target);
                                    
                     //Small delay, do not load the processor
@@ -229,6 +189,16 @@ namespace GhostRider
                 CheckBuffs();
             }
         }
+
+        public int TargetsWithin(double dist)
+        {
+
+            return getCreatures().AsParallel().ToArray().Count(obj => obj.type == BotTypes.Npc &&
+                                                                      isAttackable(obj) &&
+                                                                      isAlive(obj) &&
+                                                                      me.dist(obj) < dist);
+        }
+        
 
         private void SearchForOtherTarget(Creature target, bool keepattacking=false)
         {
