@@ -1,17 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
-using ArcheBuddy.Bot.Classes;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
-using System.Drawing;
-    
+using ArcheBuddy.Bot.Classes;
 
-namespace GhostRideer
+namespace GhostRider
 {
     public class LazyRider : Core
     {
@@ -32,7 +24,7 @@ namespace GhostRideer
         }
         #endregion
         //Try to find best mob in farm zone.
-        public Creature GetBestNearestMob(double dist=99)
+        public Creature GetBestNearestMob(Creature target, double dist=99)
         {
             //Creature mob;
             return getCreatures().AsParallel().ToArray()
@@ -90,6 +82,7 @@ namespace GhostRideer
         }
         /// <summary>
         ///    Checks if the conditions are met to cast a skill and passes the cast call on.
+        ///         IF cond evaluates to true the skill is cast     
         /// </summary>
         /// <param name="skillName">Nmae of Skill to Cast - Beware with the Spelling</param>
         /// <param name="cond">Cast only if this condition evaluates to true</param>
@@ -108,8 +101,27 @@ namespace GhostRideer
             }
 
         }
+        /// <summary>
+        /// Executes a simple rotation on the recieved target.
+        ///  - Needs a valid target TODO:(or needs checks to verify if target is valid)
+        /// </summary>
+        /// <param name="targeCreature">Target to destroy (hopefully)</param>
+        private void DoRotation(Creature targeCreature)
+        {
+            if (!GetGroupStatus("GhostRider") || !me.isAlive()) return;
+            // Be careful with spelling
+            // SKILLS NEED TO BE ORDERED BY IMPORTANCE
+            // IE: 1st : Heal cond: me.hp <33f
+            // use: UseSkillIf if you need a  
 
-       /*
+            UseSkillIf("Hell Spear");
+            UseSkillIf("Freezing Arrow");
+            UseSkillIf("Flamebolt");
+            
+
+        }
+
+        /*
         public void PluginRun_old()
         {
             new Task(() => { CancelAttacksOnAnothersMobs(); }).Start(); //Starting new thread
@@ -171,7 +183,8 @@ namespace GhostRideer
         public void LootMob(Creature bestMob)
         {
             if (!GetGroupStatus("Corpse Loot")) return;
-            while (bestMob != null && !isAlive(bestMob) && isExists(bestMob) && bestMob.type == BotTypes.Npc && ((Npc)bestMob).dropAvailable && GetGroupStatus("autoexp") && isAlive())
+            while (bestMob != null && !isAlive(bestMob) && isExists(bestMob) && bestMob.type == BotTypes.Npc &&
+                        ((Npc)bestMob).dropAvailable && isAlive())
                             {
                                 if (me.dist(bestMob) > 3)
                                     ComeTo(bestMob, 1);
@@ -194,31 +207,26 @@ namespace GhostRideer
             while (true)
             {
                 //If GhostRider checkbox enabled in widget and our character alive
-                if (GetGroupStatus("GhostRider") && me.isAlive())
+                if (!GetGroupStatus("GhostRider") || !me.isAlive()) continue;
+                //am i under attack (better way?) Or do i have someone targetted
+                if (getAggroMobs().Count > 0 || (me.target != null && isAttackable(me.target) && isAlive(me.target)))
                 {
-                    //am i under attack (better way?) Or do i have someone targetted
-                    if (getAggroMobs().Count > 0 || (me.target != null && isAttackable(me.target) && isAlive(me.target)))
-                    {
-                        if (me.target == null) SetTarget(getAggroMobs().First());
-                        if (angle(me.target, me) > 45 && angle(me.target, me) < 315)
-                            TurnDirectly(me.target);
+                    if (me.target == null) SetTarget(getAggroMobs().First());
+                    if (angle(me.target, me) > 45 && angle(me.target, me) < 315)
+                        TurnDirectly(me.target);
 
-                        if (me.dist(me.target) < 8 && isAlive(me.target))
-                            UseSkillIf("Hell Spear");
-                            UseSkillIf("Freezing Arrow");
-                            for (int i = 0; i < 2; i++)
-                                UseSkillIf("Flamebolt");
+                    if (me.dist(me.target) < 8 && isAlive(me.target))
+                        DoRotation(me.target);
                                    
-                        //Small delay, do not load the processor
-                        Thread.Sleep(10);
-                    }
-                    if (me.target != null)
-                    {
-                        LootMob(me.target);
-                        SearchForOtherTarget(me.target);
-                    }
-                    CheckBuffs();
+                    //Small delay, do not load the processor
+                    Thread.Sleep(10);
                 }
+                if (me.target != null)
+                {
+                    LootMob(me.target);
+                    SearchForOtherTarget(me.target);
+                }
+                CheckBuffs();
             }
         }
 
@@ -227,7 +235,7 @@ namespace GhostRideer
             if (!GetGroupStatus("Farm")) return;
             try
             {
-                SetTarget(GetBestNearestMob(20));
+                SetTarget(GetBestNearestMob(target,20));
             }
             catch (Exception ex)
             {
