@@ -135,12 +135,18 @@ namespace GhostRider
                 //HEAL
                 if (UseSkillIf("Enervate", (me.hpp < 50)))
                 {
-                    
-                }
+                    Log("Enervate " + me.hpp, "GhRider");
+                    MySleep(100,300);
                     if (UseSkillIf("Earthen Grip", (me.hpp < 50)))
-                        continue;
-                                
+                    {
+                        Log("Earthen "+ me.hpp ,"GhRider" );
+                    }
+                    continue;
+                }
+                UseSkillIf("Absorb Lifeforce", (me.hpp < 66));
+
                 //CLEAN DEBUF
+
 
                 //FIGHT
                 if (UseSkillIf("Hell Spear", (targeCreature.hpp >= 33) && ((TargetsWithin(4) > 1) || (me.hpp < 66))))
@@ -187,7 +193,7 @@ namespace GhostRider
                     continue;
                 //If GhostRider checkbox enabled in widget and our character alive
                 //am i under attack (better way?) Or do i have someone targetted
-                if (getAggroMobs().Count > 0 || (me.target != null && isAttackable(me.target) && isAlive(me.target)))
+                if ((GetGroupStatus("Farm")? getAggroMobs().Count > 0 : me.inFight) || (me.target != null && isAttackable(me.target) && isAlive(me.target)))
                 {
                     if (me.target == null) SetTarget(getAggroMobs().First());
                     if (angle(me.target, me) > 45 && angle(me.target, me) < 315)
@@ -279,7 +285,6 @@ namespace GhostRider
                 return;
             if (me.inFight)
             {
-                //Банки, моментально юзаются
                 if (me.hpp < 60)
                 {
                     var itemsToUse = me.getItems().FindAll(i => i.place == ItemPlace.Bag && (i.id == 18791 || i.id == 34006 || i.id == 34007));
@@ -295,7 +300,6 @@ namespace GhostRider
             }
             else
             {
-                //Печенье и т.п., юзается за 1-2 сек
                 if (me.hpp < 60)
                 {
                     var itemsToUse = me.getItems().FindAll(i => i.place == ItemPlace.Bag && (i.id == 34003 || i.id == 34001 || i.id == 34000 ||  i.id == 17664 ));
