@@ -152,7 +152,9 @@ namespace GhostRider
 
                 //FIGHT
                 if (UseSkillIf("Hell Spear",
-                    ((targeCreature.hpp >= 33) && (me.hpp < 66)) || (getAggroMobs(me).Count > 1)))
+                    (((targeCreature.hpp >= 33) && (me.hpp < 66)) || (getAggroMobs(me).Count > 1)) &&
+                    (me.dist(me.target)<=8)        //only if in range
+                    ))
                 {
                     UseSkillIf("Summon Crows", (getAggroMobs(me).Count > 1)||(me.hpp<50));
                     UseSkillIf("Arc Lightning", (getAggroMobs(me).Count == 1));
@@ -162,6 +164,11 @@ namespace GhostRider
                 UseSkillIf("Freezing Arrow",me.dist(me.target) > 8);
                 UseSkillIf("Insidious Whisper", me.dist(me.target) <= 8);
                 UseSkillIf("Flamebolt");
+
+                UseSkillIf("Freezing Earth",
+                        (((targeCreature.hpp >= 33) && (me.hpp < 66)) || (getAggroMobs(me).Count > 1)) &&
+                        (me.dist(me.target) <= 8)))        //only if in range
+
                                                                               
                 //BUFF
                 UseSkillIf("Insulating Lens", (buffTime("Insulating Lens (Rank 1)") == 0 ));
