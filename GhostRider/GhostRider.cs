@@ -55,7 +55,9 @@ namespace GhostRider
 
             if (buffTime("Insulating Lens (Rank 1)") == 0 && skillCooldown("Insulating Lens") == 0)
             {
-                var aaa = UseSkillAndWait("Insulating Lens", true);
+                SuspendMoveToBeforeUseSkill(true);
+                UseSkillAndWait("Insulating Lens", true);
+                SuspendMoveToBeforeUseSkill(false);
             }
             
         }
