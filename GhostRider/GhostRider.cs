@@ -298,13 +298,13 @@ namespace GhostRider
                 //Печенье и т.п., юзается за 1-2 сек
                 if (me.hpp < 60)
                 {
-                    var itemsToUse = me.getItems().FindAll(i => i.place == ItemPlace.Bag && (i.id == 34003 || i.id == 34001 || i.id == 34000));
+                    var itemsToUse = me.getItems().FindAll(i => i.place == ItemPlace.Bag && (i.id == 34003 || i.id == 34001 || i.id == 34000 ||  i.id == 17664 ));
                     foreach (var i in itemsToUse)
                         UseItemAndWait(i.id, true);
                 }
                 if (me.mpp < 70)
                 {
-                    var itemsToUse = me.getItems().FindAll(i => i.place == ItemPlace.Bag && (i.id == 34002 || i.id == 34005 || i.id == 34004));
+                    var itemsToUse = me.getItems().FindAll(i => i.place == ItemPlace.Bag && (i.id == 34002 || i.id == 34005 || i.id == 34004 || i.id == 8505));
                     foreach (var i in itemsToUse)
                         UseItemAndWait(i.id, true);
                 }
