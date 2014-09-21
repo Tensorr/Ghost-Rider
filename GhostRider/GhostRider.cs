@@ -16,12 +16,12 @@ namespace GhostRider
 
         public static string GetPluginVersion()
         {
-            return "0.1.0";
+            return "0.2.1";
         }
 
         public static string GetPluginDescription()
         {
-            return "Lazy Rider attempt, thanks @OUT";
+            return "Lazy Rider Plugin, Optimized for Sorc - Occ - Witch but modifiable for all changing DoRotation, thanks @OUT";
         }
         #endregion
         //Try to find best mob in farm zone.
@@ -151,6 +151,9 @@ namespace GhostRider
 
 
                 //FIGHT
+                if (angle(me.target, me) > 45 && angle(me.target, me) < 315)
+                    TurnDirectly(me.target);       //start by facing target
+
                 if (UseSkillIf("Hell Spear",
                     (((targeCreature.hpp >= 33) && (me.hpp < 66)) || (getAggroMobs(me).Count > 1)) &&
                     (me.dist(me.target)<=8)        //only if in range
@@ -166,8 +169,8 @@ namespace GhostRider
                 UseSkillIf("Flamebolt");
 
                 UseSkillIf("Freezing Earth",
-                        (((targeCreature.hpp >= 33) && (me.hpp < 66)) || (getAggroMobs(me).Count > 1)) &&
-                        (me.dist(me.target) <= 8)))        //only if in range
+                    (((targeCreature.hpp >= 33) && (me.hpp < 66)) || (getAggroMobs(me).Count > 1)) &&
+                    (me.dist(me.target) <= 8));        //only if in range
 
                                                                               
                 //BUFF
