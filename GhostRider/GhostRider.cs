@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using ArcheBuddy.Bot.Classes;
@@ -125,6 +126,7 @@ namespace GhostRider
                     if (!me.isAlive()) return;
                     if (me.target == null) return;
                     if (!targeCreature.isAlive() || !isAttackable(targeCreature)) return;
+                    //if (me.target != targeCreature) targeCreature = me.target;
                 }
                 catch { return; }
                 // Be careful with spelling
@@ -149,10 +151,16 @@ namespace GhostRider
 
 
                 //FIGHT
-                if (UseSkillIf("Hell Spear", (targeCreature.hpp >= 33) && ((TargetsWithin(4) > 1) || (me.hpp < 66))))
-                    UseSkillIf("Arc Lightning");
+                if (UseSkillIf("Hell Spear",
+                    ((targeCreature.hpp >= 33) && (me.hpp < 66)) || (getAggroMobs(me).Count > 1)))
+                {
+                    UseSkillIf("Summon Crows", (getAggroMobs(me).Count > 1)||(me.hpp<50));
+                    UseSkillIf("Arc Lightning", (getAggroMobs(me).Count == 1));
 
-                UseSkillIf("Freezing Arrow");
+                }
+                    
+                UseSkillIf("Freezing Arrow",me.dist(me.target) > 8);
+                UseSkillIf("Insidious Whisper", me.dist(me.target) <= 8);
                 UseSkillIf("Flamebolt");
                                                                               
                 //BUFF
@@ -182,9 +190,10 @@ namespace GhostRider
         public void PluginRun()
         {
             //new Task(() => { CancelAttacksOnAnothersMobs(); }).Start(); //Starting new thread
-            SetGroupStatus("GhostRider", false);        //Is this thing or or what ?
-            SetGroupStatus("Rest", true);      //Do we loot corpses or not ?
+            SetGroupStatus("GhostRider", false);     //Is this thing or or what ?
+            SetGroupStatus("Rest", true);            //Do we loot corpses or not ?
             SetGroupStatus("Farm", true);            //Do i keep on killing mobs ?
+            SetGroupStatus("AFK", true); 
             while (true)
             {
                 if (!me.isAlive())
@@ -216,8 +225,13 @@ namespace GhostRider
                 UseRegenItems();
                 if (me.hpp > 66 && me.mpp >50) 
                     SearchForOtherTarget(me.target);
-
+                if (GetGroupStatus("AFK")) DoAFK();
             }
+        }
+
+        private void DoAFK()
+        {
+            Processinventory();
         }
 
         private void DoResurrect()
@@ -279,11 +293,26 @@ namespace GhostRider
             }
         }
 
+        public void Processinventory  ()
+        {
+            foreach (var i in me.getItems().Where(i => i.place == ItemPlace.Bag && (i.id == 29203 || i.id == 29204 || i.id == 29205)))
+            {
+                while (i.count > 0 && me.opPoints > 150 && me.isAlive() && (GetGroupStatus("AFK")))
+                    {
+                        Thread.Sleep(150);
+                        i.UseItem();
+                        MySleep(10000,100000);
+                        if (GetGroupStatus("GhostRider")) return;
+                    }
+                }
+        }
+
+
         private void UseRegenItems()
         {
             if (!me.isAlive())
                 return;
-            if (me.inFight)
+            if (me.inFight)                       
             {
                 if (me.hpp < 60)
                 {
@@ -341,6 +370,38 @@ namespace GhostRider
             if (suspendMovements)
                 SuspendMoveToBeforeUseSkill(false);
         }
+        public void CheckSealedEquips()
+        {
+            if (isInPeaceZone()) //cant unseal in peace zone
+                return;
+            foreach (var i in me.getItems().Where(i => i.place == ItemPlace.Bag))
+            {
+                if (i.id == 29203 || i.id == 29204 || i.id == 29205)
+                {
+                    while (i.count > 0 && me.opPoints > 150 && me.isAlive())
+                    {
+                        Thread.Sleep(150);
+                        i.UseItem();
+                        Thread.Sleep(500);
+                        while (me.isCasting || me.isGlobalCooldown)
+                            Thread.Sleep(50);
+                    }
+                }
+                if (i.categoryId == 153 || itemsToUnseal.Contains(i.id)) //Unidentified or chests with closes.
+                {
+                    if (me.opPoints < 10)
+                        return;
+                    while (i.count > 0 && me.isAlive())
+                    {
+                        Thread.Sleep(500);
+                        i.UseItem();
+                        Thread.Sleep(1000);
+                        while (me.isCasting || me.isGlobalCooldown)
+                            Thread.Sleep(50);
+                    }
+                }
+            }
+        }
 
         private void LogEx(Exception ex)
         {
@@ -348,5 +409,13 @@ namespace GhostRider
             Log("!!##  Source = " + ex.Source, "GhRider");
             Log("!!##  StackTrace = " + ex.StackTrace, "GhRider");
         }
+
+        private List<uint> itemsToSell = new List<uint>() { 32110, 32134, 32102, 32123, 32099, 23387, 6127, 23390, 6152, 23388, 6077, 32166, 32113, 8012, 7992, 32145, 32152, 32170, 32175, 33000, 32169, 32176, 32173, 22103, 6202, 33213, 33005, 22159, 32184, 22230, 33226, 32996, 33224, 33361, 32984, 33233, 32981, 33234, 32978, 33225, 32990, 32987, 33235 };
+        private List<uint> itemsToDelete = new List<uint>() { 15694, 29498, 19563, 17801, 19960, 14482, 17825, 15822, 14830, 23700, 26106, 16006, 21131, 24422 };
+        private List<uint> itemsToWareHouse = new List<uint>() { 23092, 15596, 8337, 31892, 25253, 14677, 8343, 8000083, 8327, 23633, 21588, 16347, 16348, 16349, 16350, 16351, 16352, 23663 };
+        private List<uint> itemsToUnseal = new List<uint>() { 32458, 32463, 32462, 32464, 33116, 33117, 33307, 33310, 33493, 33496, 33609, 33612, 33777, 33780 };
+        private List<uint> itemsToDisenchant = new List<uint>() { 33440, 33350, 33361, 33360, 33362, 33374, 33370, 33369, 33351, 33371, 33466, 33468, 33467, 33439, 22132, 22763 };
+          
+
     }
 }
