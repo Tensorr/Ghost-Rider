@@ -201,9 +201,9 @@ namespace GhostRider
         {
             //new Task(() => { CancelAttacksOnAnothersMobs(); }).Start(); //Starting new thread
             SetGroupStatus("GhostRider", false);     //Is this thing or or what ?
-            SetGroupStatus("Rest", true);            //Do we loot corpses or not ?
-            SetGroupStatus("Farm", true);            //Do i keep on killing mobs ?
-            SetGroupStatus("AFK", true); 
+            SetGroupStatus("Inventory", false);       //Open Purses
+            SetGroupStatus("Farm", false);            //Do i keep on killing mobs ?
+            SetGroupStatus("AFK", false);             //If AFK is enabled some timings are made very relaxes (ie open a purse a minute or so) 
             while (true)
             {
                 if (!me.isAlive())
@@ -236,7 +236,7 @@ namespace GhostRider
                 UseRegenItems();
                 if (me.hpp > 66 && me.mpp >50) 
                     SearchForOtherTarget(me.target);
-                if (GetGroupStatus("AFK")) DoAFK();
+                if (GetGroupStatus("Inventory")) Processinventory();
             }
         }
 
@@ -312,8 +312,11 @@ namespace GhostRider
                     {
                         Thread.Sleep(150);
                         i.UseItem();
-                        MySleep(10000,100000);
-                        if (GetGroupStatus("GhostRider")) return;
+                        if (GetGroupStatus("AFK")) MySleep(10000,100000);
+                        MySleep(50, 150); // it's small enough so i dont care about conditionals
+                        if (!GetGroupStatus("GhostRider")) continue;
+                        
+                        return;
                     }
                 }
         }
