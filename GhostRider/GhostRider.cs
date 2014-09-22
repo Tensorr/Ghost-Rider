@@ -16,7 +16,7 @@ namespace GhostRider
 
         public static string GetPluginVersion()
         {
-            return "0.2.1";
+            return "0.2.2";
         }
 
         public static string GetPluginDescription()
@@ -151,7 +151,7 @@ namespace GhostRider
 
 
                 //FIGHT
-                if (angle(me.target, me) > 45 && angle(me.target, me) < 315)
+                //if (angle(me.target, me) > 45 && angle(me.target, me) < 315)
                     TurnDirectly(me.target);       //start by facing target
 
                 if (UseSkillIf("Hell Spear",
@@ -174,7 +174,7 @@ namespace GhostRider
 
                                                                               
                 //BUFF
-                UseSkillIf("Insulating Lens", (buffTime("Insulating Lens (Rank 1)") == 0 ));
+                UseSkillIf("Insulating Lens", (buffTime("Insulating Lens (Rank 2)") == 0 ));
 
             }
        }
@@ -214,6 +214,7 @@ namespace GhostRider
                 //am i under attack (better way?) Or do i have someone targetted
                 if ((GetGroupStatus("Farm")? getAggroMobs().Count > 0 : me.inFight) || (me.target != null && isAttackable(me.target) && isAlive(me.target)))
                 {
+                    if (me.target == null) SetTarget(getAggroMobs(me).First());
                     if (me.target == null) SetTarget(getAggroMobs().First());
                     if (angle(me.target, me) > 45 && angle(me.target, me) < 315)
                         TurnDirectly(me.target);
