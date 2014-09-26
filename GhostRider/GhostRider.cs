@@ -129,9 +129,16 @@ namespace GhostRider
             {
                 if (!targeCreature.isAlive() || !isAttackable(targeCreature))
                 {
-                    if (!me.inFight && getAggroMobs(me).Count == 0)
+                    if (getAggroMobs(me).Count == 0)
                         return;
-                    targeCreature = getAggroMobs(me).First();
+                    try
+                    {
+                        targeCreature = getAggroMobs(me).First();
+                    }
+                    catch
+                    {
+                        return;
+                    }
                 }
             
                 while (!SetTarget(targeCreature)) { Thread.Sleep(50);}
