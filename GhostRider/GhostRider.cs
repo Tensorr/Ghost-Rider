@@ -16,7 +16,7 @@ namespace GhostRider
 
         public static string GetPluginVersion()
         {
-            return "0.2.2";
+            return "0.2.4";
         }
 
         public static string GetPluginDescription()
@@ -53,13 +53,22 @@ namespace GhostRider
         //Check our buffs
         public void CheckBuffs()
         {
-
-            if (buffTime("Insulating Lens (Rank 1)") == 0 && skillCooldown("Insulating Lens") == 0)
+            if (buffTime("Insulating Lens (Rank 2)") == 0 && skillCooldown("Insulating Lens") == 0)
             {
                 SuspendMoveToBeforeUseSkill(true);
                 UseSkillAndWait("Insulating Lens", true);
                 SuspendMoveToBeforeUseSkill(false);
             }
+            
+            if (buffTime("Fruit Liquor") == 0 && GetGroupStatus("Eat/Drink"))
+            {
+                UseItemAndWait(17668);
+            }
+            if (buffTime("Fruit Punch") == 0 && GetGroupStatus("Eat/Drink"))
+            {
+                UseItemAndWait(8501);
+            }
+            
             
         }
 
@@ -67,7 +76,7 @@ namespace GhostRider
         {
             //wait cooldowns first, before we try to cast skill
             while (me.isCasting || me.isGlobalCooldown)
-                MySleep(100,200);
+                MySleep(50,100);
             if (UseSkill(skillName, true, selfTarget))
             {
                 //wait cooldown again, after we start cast skill
@@ -96,15 +105,13 @@ namespace GhostRider
         /// <param name="selfTarget">Target myself ? T/F</param>
         public bool UseSkillIf(string skillName, bool cond = true, bool selfTarget = false)
         {
-            if (cond && skillCooldown(skillName)==0L)
+            if (!cond || skillCooldown(skillName) != 0L) return false;
+            try
             {
-                try
-                {
-                    return (UseSkillAndWait(skillName, selfTarget));
-                }
-                catch(Exception ex){
-                    LogEx(ex);
-                }
+                return (UseSkillAndWait(skillName, selfTarget));
+            }
+            catch(Exception ex){
+                LogEx(ex);
             }
             return false;
         }
@@ -120,12 +127,13 @@ namespace GhostRider
 
             while (GetGroupStatus("GhostRider"))
             {
+                if (!targeCreature.isAlive() || !isAttackable(targeCreature))
+                    return;
+                while (!SetTarget(targeCreature)) { Thread.Sleep(50);}
                 // one of these might throw an ex but the result is the same - retrun  
                 try
                 {
                     if (!me.isAlive()) return;
-                    if (me.target == null) return;
-                    if (!targeCreature.isAlive() || !isAttackable(targeCreature)) return;
                     //if (me.target != targeCreature) targeCreature = me.target;
                 }
                 catch { return; }
@@ -161,10 +169,9 @@ namespace GhostRider
                 {
                     UseSkillIf("Summon Crows", (getAggroMobs(me).Count > 1)||(me.hpp<50));
                     UseSkillIf("Arc Lightning", (getAggroMobs(me).Count == 1));
-
                 }
                     
-                UseSkillIf("Freezing Arrow",me.dist(me.target) > 8);
+                UseSkillIf("Freezing Arrow");
                 UseSkillIf("Insidious Whisper", me.dist(me.target) <= 8);
                 UseSkillIf("Flamebolt");
 
@@ -173,8 +180,8 @@ namespace GhostRider
                     (me.dist(me.target) <= 8));        //only if in range
 
                                                                               
-                //BUFF
-                UseSkillIf("Insulating Lens", (buffTime("Insulating Lens (Rank 2)") == 0 ));
+                //BUFF     //While fighting? 
+                UseSkillIf("Insulating Lens", (buffTime("Insulating Lens (Rank 2)") == 0 && me.hpp < 70 ));
 
             }
        }
@@ -195,39 +202,64 @@ namespace GhostRider
         {
             get { return true; }
         }
+
+        public void PluginStop()
+        {
+            DelGroupStatus("GhostRider");      //Is this thing on or what ?
+            DelGroupStatus("Inventory");       //Open Purses
+            DelGroupStatus("Farm");            //Do i keep on killing mobs ?
+            DelGroupStatus("AFK");             //If AFK is enabled some timings are made very relaxed (ie open a purse a minute or so) 
+            DelGroupStatus("Eat/Drink");  
+        }
         
 
         public void PluginRun()
         {
             //new Task(() => { CancelAttacksOnAnothersMobs(); }).Start(); //Starting new thread
-            SetGroupStatus("GhostRider", false);     //Is this thing or or what ?
+            SetGroupStatus("GhostRider", false);      //Is this thing on or what ?
             SetGroupStatus("Inventory", false);       //Open Purses
             SetGroupStatus("Farm", false);            //Do i keep on killing mobs ?
-            SetGroupStatus("AFK", false);             //If AFK is enabled some timings are made very relaxes (ie open a purse a minute or so) 
+            SetGroupStatus("AFK", false);             //If AFK is enabled some timings are made very relaxed (ie open a purse a minute or so) 
+            SetGroupStatus("Eat/Drink", false);       //Eat after fighting, take potions during fight, drink bevs as buff
             while (true)
             {
-                if (!me.isAlive())
-                    DoResurrect();
+                try{ if (!me.isAlive())
+                        DoResurrect();}
+                catch {}
                 if (!GetGroupStatus("GhostRider") || !me.isAlive()) 
                     continue;
                 //If GhostRider checkbox enabled in widget and our character alive
                 //am i under attack (better way?) Or do i have someone targetted
                 if ((GetGroupStatus("Farm")? getAggroMobs().Count > 0 : me.inFight) || (me.target != null && isAttackable(me.target) && isAlive(me.target)))
                 {
-                    if (me.target == null) SetTarget(getAggroMobs(me).First());
-                    if (me.target == null) SetTarget(getAggroMobs().First());
-                    if (angle(me.target, me) > 45 && angle(me.target, me) < 315)
-                        TurnDirectly(me.target);
+                    try
+                    {   if (me.target == null || getAggroMobs(me).Count > 0)
+                            SetTarget(getAggroMobs(me).First());   // dont have a target selected, attack the one attacking me.
+                        if (me.target == null && GetGroupStatus("Farm")) 
+                            SetTarget(getAggroMobs().First());
+                    }
+                    catch
+                    {
+                        SetTarget(getAggroMobs(me).First());
+                        continue;
+                    }
 
-                    if (isAlive(me.target))
+                    if ( me.target != null && (me.angle(me.target) > 45 && me.angle(me.target) < 315))
+                        TurnDirectly(me.target);              //Face Target if not facing it.
+                    
+                    if (me.target != null && isAlive(me.target))
                         DoRotation(me.target);
                     
                     MySleep(100,333);
                 }
                 //if (!me.isAlive()) continue;
-                if (me.target != null && !me.target.isAlive())
-                    LootMob(me.target);
-                foreach (var m in getCreatures().Where(m=>m.dropAvailable && me.dist(m) < 5 ))
+                try
+                {
+                    if (me.target != null && !me.target.isAlive())
+                        LootMob(me.target);
+                }
+                catch {}
+                foreach (var m in getCreatures().Where(m=>m.dropAvailable && me.dist(m) < 10 ))
                 {
                     PickupAllDrop(m);
                     MySleep(100,333);
@@ -256,7 +288,7 @@ namespace GhostRider
             while (!ResToRespoint())
                 Thread.Sleep(10000);
             while (!SetTarget("Glorious Nui"))
-                MySleep(500, 1000);
+                MySleep(200, 1000);
             
             if (me.target != null) MoveTo(me.target);
 
@@ -290,13 +322,12 @@ namespace GhostRider
                                                                       me.dist(obj) < dist);
         }
         
-
         private void SearchForOtherTarget(Creature target, bool keepattacking=false)
         {
             if (!GetGroupStatus("Farm")) return;
             try
             {
-                SetTarget(GetBestNearestMob(target,55));
+                SetTarget(GetBestNearestMob(target,40));
             }
             catch (Exception ex)
             {
@@ -306,19 +337,28 @@ namespace GhostRider
 
         public void Processinventory  ()
         {
-            foreach (var i in me.getItems().Where(i => i.place == ItemPlace.Bag && (i.id == 29203 || i.id == 29204 || i.id == 29205)))
+            foreach (
+                var i in
+                    me.getItems()
+                        .Where(i => i.place == ItemPlace.Bag && (i.id == 29203 || i.id == 29204 || i.id == 29205)))
             {
-                while (i.count > 0 && me.opPoints > 150 && me.isAlive() && (GetGroupStatus("AFK")))
+                try
+                {
+                    if (i == null) continue;
+
+                    while (i.count > 0 && me.opPoints > 150 && me.isAlive() && (GetGroupStatus("Inventory")))
                     {
                         Thread.Sleep(150);
                         i.UseItem();
-                        if (GetGroupStatus("AFK")) MySleep(10000,100000);
+                        if (GetGroupStatus("AFK")) MySleep(100000, 1000000);
                         MySleep(50, 150); // it's small enough so i dont care about conditionals
                         if (!GetGroupStatus("GhostRider")) continue;
-                        
+
                         return;
                     }
                 }
+                catch (Exception ex) { LogEx(ex);}
+            }
         }
 
 
@@ -330,13 +370,13 @@ namespace GhostRider
             {
                 if (me.hpp < 60)
                 {
-                    var itemsToUse = me.getItems().FindAll(i => i.place == ItemPlace.Bag && (i.id == 18791 || i.id == 34006 || i.id == 34007));
+                    var itemsToUse = me.getItems().FindAll(i => i.place == ItemPlace.Bag && (i.id == 18791 || i.id == 34006 || i.id == 34007 || i.id == 15580));
                     foreach (var i in itemsToUse)
                         UseItemAndWait(i.id);
                 }
                 if (me.mpp < 70)
                 {
-                    var itemsToUse = me.getItems().FindAll(i => i.place == ItemPlace.Bag && (i.id == 18792 || i.id == 34008 || i.id == 34009));
+                    var itemsToUse = me.getItems().FindAll(i => i.place == ItemPlace.Bag && (i.id == 18792 || i.id == 34008 || i.id == 34009 || i.id == 31770));
                     foreach (var i in itemsToUse)
                         UseItemAndWait(i.id);
                 }
@@ -384,36 +424,42 @@ namespace GhostRider
             if (suspendMovements)
                 SuspendMoveToBeforeUseSkill(false);
         }
+
         public void CheckSealedEquips()
         {
             if (isInPeaceZone()) //cant unseal in peace zone
                 return;
-            foreach (var i in me.getItems().Where(i => i.place == ItemPlace.Bag))
+            foreach (
+                var i in
+                    me.getItems()
+                        .Where(i => i.place == ItemPlace.Bag && ((i.id == 29203 || i.id == 29204 || i.id == 29205))))
             {
-                if (i.id == 29203 || i.id == 29204 || i.id == 29205)
+                while (i.count > 0 && me.opPoints > 150 && me.isAlive())
                 {
-                    while (i.count > 0 && me.opPoints > 150 && me.isAlive())
-                    {
-                        Thread.Sleep(150);
-                        i.UseItem();
-                        Thread.Sleep(500);
-                        while (me.isCasting || me.isGlobalCooldown)
-                            Thread.Sleep(50);
-                    }
+                    Thread.Sleep(150);
+                    i.UseItem();
+                    Thread.Sleep(500);
+                    while (me.isCasting || me.isGlobalCooldown)
+                        Thread.Sleep(50);
                 }
-                if (i.categoryId == 153 || itemsToUnseal.Contains(i.id)) //Unidentified or chests with closes.
+            }
+            foreach (
+                var i in
+                    me.getItems()
+                        .Where(i => i.place == ItemPlace.Bag && ((i.id == 29203 || i.id == 29204 || i.id == 29205))))
+            {
+                if (i.categoryId != 153 && !itemsToUnseal.Contains(i.id)) return;
+                if (me.opPoints < 10)
+                    return;
+                while (i.count > 0 && me.isAlive())
                 {
-                    if (me.opPoints < 10)
-                        return;
-                    while (i.count > 0 && me.isAlive())
-                    {
-                        Thread.Sleep(500);
-                        i.UseItem();
-                        Thread.Sleep(1000);
-                        while (me.isCasting || me.isGlobalCooldown)
-                            Thread.Sleep(50);
-                    }
+                    Thread.Sleep(500);
+                    i.UseItem();
+                    Thread.Sleep(1000);
+                    while (me.isCasting || me.isGlobalCooldown)
+                        Thread.Sleep(50);
                 }
+
             }
         }
 
@@ -424,11 +470,11 @@ namespace GhostRider
             Log("!!##  StackTrace = " + ex.StackTrace, "GhRider");
         }
 
-        private List<uint> itemsToSell = new List<uint>() { 32110, 32134, 32102, 32123, 32099, 23387, 6127, 23390, 6152, 23388, 6077, 32166, 32113, 8012, 7992, 32145, 32152, 32170, 32175, 33000, 32169, 32176, 32173, 22103, 6202, 33213, 33005, 22159, 32184, 22230, 33226, 32996, 33224, 33361, 32984, 33233, 32981, 33234, 32978, 33225, 32990, 32987, 33235 };
-        private List<uint> itemsToDelete = new List<uint>() { 15694, 29498, 19563, 17801, 19960, 14482, 17825, 15822, 14830, 23700, 26106, 16006, 21131, 24422 };
-        private List<uint> itemsToWareHouse = new List<uint>() { 23092, 15596, 8337, 31892, 25253, 14677, 8343, 8000083, 8327, 23633, 21588, 16347, 16348, 16349, 16350, 16351, 16352, 23663 };
-        private List<uint> itemsToUnseal = new List<uint>() { 32458, 32463, 32462, 32464, 33116, 33117, 33307, 33310, 33493, 33496, 33609, 33612, 33777, 33780 };
-        private List<uint> itemsToDisenchant = new List<uint>() { 33440, 33350, 33361, 33360, 33362, 33374, 33370, 33369, 33351, 33371, 33466, 33468, 33467, 33439, 22132, 22763 };
+        private List<uint> itemsToSell = new List<uint> { 32110, 32134, 32102, 32123, 32099, 23387, 6127, 23390, 6152, 23388, 6077, 32166, 32113, 8012, 7992, 32145, 32152, 32170, 32175, 33000, 32169, 32176, 32173, 22103, 6202, 33213, 33005, 22159, 32184, 22230, 33226, 32996, 33224, 33361, 32984, 33233, 32981, 33234, 32978, 33225, 32990, 32987, 33235 };
+        private List<uint> itemsToDelete = new List<uint> { 15694, 29498, 19563, 17801, 19960, 14482, 17825, 15822, 14830, 23700, 26106, 16006, 21131, 24422 };
+        private List<uint> itemsToWareHouse = new List<uint> { 23092, 15596, 8337, 31892, 25253, 14677, 8343, 8000083, 8327, 23633, 21588, 16347, 16348, 16349, 16350, 16351, 16352, 23663 };
+        private List<uint> itemsToUnseal = new List<uint> { 32458, 32463, 32462, 32464, 33116, 33117, 33307, 33310, 33493, 33496, 33609, 33612, 33777, 33780 };
+        private List<uint> itemsToDisenchant = new List<uint> { 33440, 33350, 33361, 33360, 33362, 33374, 33370, 33369, 33351, 33371, 33466, 33468, 33467, 33439, 22132, 22763 };
           
 
     }
