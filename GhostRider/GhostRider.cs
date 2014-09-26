@@ -128,7 +128,12 @@ namespace GhostRider
             while (GetGroupStatus("GhostRider"))
             {
                 if (!targeCreature.isAlive() || !isAttackable(targeCreature))
-                    return;
+                {
+                    if (!me.inFight && getAggroMobs(me).Count == 0)
+                        return;
+                    targeCreature = getAggroMobs(me).First();
+                }
+            
                 while (!SetTarget(targeCreature)) { Thread.Sleep(50);}
                 // one of these might throw an ex but the result is the same - retrun  
                 try
@@ -152,6 +157,10 @@ namespace GhostRider
                         Log("Earthen "+ me.hpp ,"GhRider" );
                     }
                     continue;
+                }
+                else
+                {
+                    UseRegenItems();
                 }
                 UseSkillIf("Absorb Lifeforce", (me.hpp < 66));
 
@@ -368,13 +377,13 @@ namespace GhostRider
                 return;
             if (me.inFight)                       
             {
-                if (me.hpp < 60)
+                if (me.hpp < 50)
                 {
                     var itemsToUse = me.getItems().FindAll(i => i.place == ItemPlace.Bag && (i.id == 18791 || i.id == 34006 || i.id == 34007 || i.id == 15580));
                     foreach (var i in itemsToUse)
                         UseItemAndWait(i.id);
                 }
-                if (me.mpp < 70)
+                if (me.mpp < 50)
                 {
                     var itemsToUse = me.getItems().FindAll(i => i.place == ItemPlace.Bag && (i.id == 18792 || i.id == 34008 || i.id == 34009 || i.id == 31770));
                     foreach (var i in itemsToUse)
