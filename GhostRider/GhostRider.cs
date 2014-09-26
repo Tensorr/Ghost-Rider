@@ -139,9 +139,15 @@ namespace GhostRider
                     {
                         return;
                     }
+                }      
+
+                var a=0;
+                while (!SetTarget(targeCreature)&&a<20)
+                {
+                    Thread.Sleep(50);
+                    a++;
                 }
-            
-                while (!SetTarget(targeCreature)) { Thread.Sleep(50);}
+
                 // one of these might throw an ex but the result is the same - retrun  
                 try
                 {
@@ -178,6 +184,12 @@ namespace GhostRider
                 //if (angle(me.target, me) > 45 && angle(me.target, me) < 315)
                     TurnDirectly(me.target);       //start by facing target
 
+                if (getAggroMobs(me).Count > 1 && TargetsWithin(8) > 1 && me.hpp < 75)  //AOE First id i am not 100%
+                {
+                    UseSkillIf("Summon Crows", UseSkillIf("Hell Spear", skillCooldown("Summon Crows") == 0));
+                    UseSkillIf("Searing Rain", UseSkillIf("Freezing Earth", skillCooldown("Searing Rain") == 0));
+                }
+                
                 if (UseSkillIf("Hell Spear",
                     (((targeCreature.hpp >= 33) && (me.hpp < 66)) || (getAggroMobs(me).Count > 1)) &&
                     (me.dist(me.target)<=8)        //only if in range
@@ -189,7 +201,7 @@ namespace GhostRider
                     
                 UseSkillIf("Freezing Arrow");
                 UseSkillIf("Insidious Whisper", me.dist(me.target) <= 8);
-                UseSkillIf("Flamebolt");
+                UseSkillIf("Flamebolt", UseSkillIf("Flamebolt", UseSkillIf("Flamebolt")));
 
                 UseSkillIf("Freezing Earth",
                     (((targeCreature.hpp >= 33) && (me.hpp < 66)) || (getAggroMobs(me).Count > 1)) &&
@@ -256,7 +268,7 @@ namespace GhostRider
                     }
                     catch
                     {
-                        SetTarget(getAggroMobs(me).First());
+                        if  (getAggroMobs(me).Count > 0) SetTarget(getAggroMobs(me).First());
                         continue;
                     }
 
