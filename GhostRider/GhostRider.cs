@@ -214,15 +214,14 @@ namespace GhostRider
             }
        }
 
-        public void LootMob(Creature bestMob)
+        public void LootMob(Creature deadCreature)
         {
-            if (!GetGroupStatus("Corpse Loot")) return;
-            while (bestMob != null && !isAlive(bestMob) && isExists(bestMob) && bestMob.type == BotTypes.Npc &&
-                        ((Npc)bestMob).dropAvailable && isAlive())
+            while (deadCreature != null && !isAlive(deadCreature) && isExists(deadCreature) && deadCreature.type == BotTypes.Npc &&
+                        ((Npc)deadCreature).dropAvailable && isAlive())
                             {
-                                if (me.dist(bestMob) > 3)
-                                    ComeTo(bestMob, 1);
-                                PickupAllDrop(bestMob);
+                                if (me.dist(deadCreature) > 3)
+                                    ComeTo(deadCreature, 1);
+                                PickupAllDrop(deadCreature);
                             }
         }
 
@@ -314,9 +313,9 @@ namespace GhostRider
             MySleep(1000, 2000);
             
             while (!ResToRespoint())
-                Thread.Sleep(10000);
+                Thread.Sleep(1000);
             while (!SetTarget("Glorious Nui"))
-                MySleep(500, 1500);
+                MySleep(1500, 2500);
             
             if (me.target != null) MoveTo(me.target);
 
