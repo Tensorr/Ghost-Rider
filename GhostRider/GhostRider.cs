@@ -84,6 +84,7 @@ namespace GhostRider
                     Thread.Sleep(50);
                 while (me.isGlobalCooldown)
                     Thread.Sleep(50);
+                MySleep(250,500);
                 return true;
             }
             if (me.target == null || GetLastError() != LastError.NoLineOfSight) return false;
@@ -137,7 +138,7 @@ namespace GhostRider
                 }      
 
                 var a=0;
-                while (!SetTarget(targeCreature)&&a<20)
+                while (!SetTarget(targeCreature) && a < 20 && GetGroupStatus("GhostRider"))
                 {
                     Thread.Sleep(50);
                     a++;
@@ -182,8 +183,10 @@ namespace GhostRider
                 {
                     if (getAggroMobs(me).Count > 1 && TargetsWithin(8) > 1 && me.hpp < 75) //AOE First id i am not 100%
                     {
-                        UseSkillIf("Summon Crows", UseSkillIf("Hell Spear", skillCooldown("Summon Crows") == 0L));
-                        UseSkillIf("Searing Rain", UseSkillIf("Freezing Earth", skillCooldown("Searing Rain") == 0L));
+                        if (UseSkillIf("Summon Crows", UseSkillIf("Hell Spear", skillCooldown("Summon Crows") == 0L)))
+                            continue;
+                        if(UseSkillIf("Searing Rain", UseSkillIf("Freezing Earth", skillCooldown("Searing Rain") == 0L)))
+                            continue;
                     }
 
                     if (UseSkillIf("Hell Spear",
