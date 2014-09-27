@@ -138,61 +138,52 @@ namespace GhostRider
                         targeCreature = getAggroMobs(me).First();
                     }
 
-                }
-                catch
-                {
-                    return;
-                }
 
-                var a=0;
-                while (!SetTarget(targeCreature) && a < 20 && GetGroupStatus("GhostRider"))
-                {
-                    Thread.Sleep(50);
-                    a++;
-                }
+                    var a = 0;
+                    while (!SetTarget(targeCreature) && a < 20 && GetGroupStatus("GhostRider"))
+                    {
+                        Thread.Sleep(50);
+                        a++;
+                    }
 
-                // one of these might throw an ex but the result is the same - retrun  
-                try
-                {
+                    // one of these might throw an ex but the result is the same - retrun  
                     if (!me.isAlive()) return;
                     //if (me.target != targeCreature) targeCreature = me.target;
-                }
-                catch { return; }
-                // Be careful with spelling
-                // SKILLS NEED TO BE ORDERED BY IMPORTANCE
-                // IE: 1st : Heal cond: me.hp <33f
-                // use: UseSkillIf if you need a  
 
-                //HEAL
-                if (UseSkillIf("Enervate", (me.hpp < 50)))
-                {
-                    Log("Enervate " + me.hpp, "GhRider");
-                    MySleep(100,300);
-                    if (UseSkillIf("Earthen Grip", (me.hpp < 50)))
+                    // Be careful with spelling
+                    // SKILLS NEED TO BE ORDERED BY IMPORTANCE
+                    // IE: 1st : Heal cond: me.hp <33f
+                    // use: UseSkillIf if you need a  
+
+                    //HEAL
+                    if (UseSkillIf("Enervate", (me.hpp < 50)))
                     {
-                        Log("Earthen "+ me.hpp ,"GhRider" );
+                        Log("Enervate " + me.hpp, "GhRider");
+                        MySleep(100, 300);
+                        if (UseSkillIf("Earthen Grip", (me.hpp < 50)))
+                        {
+                            Log("Earthen " + me.hpp, "GhRider");
+                        }
+                        continue;
                     }
-                    continue;
-                }
-                else
-                {
-                    UseRegenItems();
-                }
-                UseSkillIf("Absorb Lifeforce", (me.hpp < 66));
+                    else
+                    {
+                        UseRegenItems();
+                    }
+                    UseSkillIf("Absorb Lifeforce", (me.hpp < 66));
 
-                //CLEAN DEBUF
+                    //CLEAN DEBUF
 
 
-                //FIGHT
-                //if (angle(me.target, me) > 45 && angle(me.target, me) < 315)
-                    TurnDirectly(me.target);       //start by facing target
-                try
-                {
+                    //FIGHT
+                    //if (angle(me.target, me) > 45 && angle(me.target, me) < 315)
+                    TurnDirectly(me.target); //start by facing target
+
                     if (getAggroMobs(me).Count > 1 && TargetsWithin(8) > 1 && me.hpp < 75) //AOE First id i am not 100%
                     {
                         if (UseSkillIf("Summon Crows", UseSkillIf("Hell Spear", skillCooldown("Summon Crows") == 0L)))
                             continue;
-                        if(UseSkillIf("Searing Rain", UseSkillIf("Freezing Earth", skillCooldown("Searing Rain") == 0L)))
+                        if (UseSkillIf("Searing Rain", UseSkillIf("Freezing Earth", skillCooldown("Searing Rain") == 0L)))
                             continue;
                     }
 
@@ -219,7 +210,8 @@ namespace GhostRider
                 }
                 catch (Exception ex)
                 {
-                    LogEx(ex);   
+                    Log("!!## ROTATIONS","GhRider");
+                    LogEx(ex);
                 }
             }
        }
@@ -263,8 +255,12 @@ namespace GhostRider
                 try{ if (!me.isAlive())
                         DoResurrect();}
                 catch {}
-                if (!GetGroupStatus("GhostRider") || !me.isAlive()) 
+                if (!GetGroupStatus("GhostRider") || !me.isAlive())
+                {
+                    Thread.Sleep(200);
                     continue;
+                }
+                Thread.Sleep(50);   
                 //If GhostRider checkbox enabled in widget and our character alive
                 //am i under attack (better way?) Or do i have someone targetted
                 if ((GetGroupStatus("Farm")? getAggroMobs().Count > 0 : me.inFight) || (me.target != null && isAttackable(me.target) && isAlive(me.target)))
