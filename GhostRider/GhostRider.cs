@@ -76,17 +76,17 @@ namespace GhostRider
         {
             //wait cooldowns first, before we try to cast skill
             while (me.isCasting || me.isGlobalCooldown)
-                MySleep(50,100);
+                MySleep(50,100);                                        
             do
             {
                 if (UseSkill(skillName, true, selfTarget))
-                {
+                {                                                                                   
                     //wait cooldown again, after we start cast skill
                     while (me.isCasting)
                         Thread.Sleep(50);
                     while (me.isGlobalCooldown)
                         Thread.Sleep(50);
-                    MySleep(250, 600);
+                    MySleep(50, 150);
                     return true;
                 }
             } while (GetLastError() == LastError.AlreadyCasting);    // TST
@@ -127,19 +127,22 @@ namespace GhostRider
 
             while (GetGroupStatus("GhostRider"))
             {
-                if (!targeCreature.isAlive() || !isAttackable(targeCreature))
+
+                try
                 {
-                    if (getAggroMobs(me).Count == 0)
-                        return;
-                    try
+                    if (!targeCreature.isAlive() || !isAttackable(targeCreature))
                     {
+                        if (getAggroMobs(me).Count == 0)
+                            return;
+
                         targeCreature = getAggroMobs(me).First();
                     }
-                    catch
-                    {
-                        return;
-                    }
-                }      
+
+                }
+                catch
+                {
+                    return;
+                }
 
                 var a=0;
                 while (!SetTarget(targeCreature) && a < 20 && GetGroupStatus("GhostRider"))
