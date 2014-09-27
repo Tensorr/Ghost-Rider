@@ -77,16 +77,20 @@ namespace GhostRider
             //wait cooldowns first, before we try to cast skill
             while (me.isCasting || me.isGlobalCooldown)
                 MySleep(50,100);
-            if (UseSkill(skillName, true, selfTarget))
+            do
             {
-                //wait cooldown again, after we start cast skill
-                while (me.isCasting)
-                    Thread.Sleep(50);
-                while (me.isGlobalCooldown)
-                    Thread.Sleep(50);
-                MySleep(250,500);
-                return true;
-            }
+                if (UseSkill(skillName, true, selfTarget))
+                {
+                    //wait cooldown again, after we start cast skill
+                    while (me.isCasting)
+                        Thread.Sleep(50);
+                    while (me.isGlobalCooldown)
+                        Thread.Sleep(50);
+                    MySleep(250, 600);
+                    return true;
+                }
+            } while (GetLastError() == LastError.AlreadyCasting);    // TST
+
             if (me.target == null || GetLastError() != LastError.NoLineOfSight) return false;
             //No line of sight, try come to target.
                 ComeTo(me.target, 10);
