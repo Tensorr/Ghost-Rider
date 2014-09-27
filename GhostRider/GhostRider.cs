@@ -53,7 +53,7 @@ namespace GhostRider
         //Check our buffs
         public void CheckBuffs()
         {
-            if (buffTime("Insulating Lens (Rank 2)") == 0 && skillCooldown("Insulating Lens") == 0)
+            if (buffTime("Insulating Lens (Rank 3)") == 0 && skillCooldown("Insulating Lens") == 0)
             {
                 SuspendMoveToBeforeUseSkill(true);
                 UseSkillAndWait("Insulating Lens", true);
@@ -80,19 +80,14 @@ namespace GhostRider
             if (UseSkill(skillName, true, selfTarget))
             {
                 //wait cooldown again, after we start cast skill
-                while (me.isCasting || me.isGlobalCooldown)
+                while (me.isCasting)
+                    Thread.Sleep(50);
+                while (me.isGlobalCooldown)
                     Thread.Sleep(50);
                 return true;
             }
             if (me.target == null || GetLastError() != LastError.NoLineOfSight) return false;
             //No line of sight, try come to target.
-            if (dist(me.target) <= 5)
-                ComeTo(me.target, 2);
-            else if (dist(me.target) <= 10)
-                ComeTo(me.target, 3);
-            else if (dist(me.target) < 20)
-                ComeTo(me.target, 8);
-            else
                 ComeTo(me.target, 10);
             return false;
         }
@@ -183,34 +178,39 @@ namespace GhostRider
                 //FIGHT
                 //if (angle(me.target, me) > 45 && angle(me.target, me) < 315)
                     TurnDirectly(me.target);       //start by facing target
-
-                if (getAggroMobs(me).Count > 1 && TargetsWithin(8) > 1 && me.hpp < 75)  //AOE First id i am not 100%
+                try
                 {
-                    UseSkillIf("Summon Crows", UseSkillIf("Hell Spear", skillCooldown("Summon Crows") == 0));
-                    UseSkillIf("Searing Rain", UseSkillIf("Freezing Earth", skillCooldown("Searing Rain") == 0));
+                    if (getAggroMobs(me).Count > 1 && TargetsWithin(8) > 1 && me.hpp < 75) //AOE First id i am not 100%
+                    {
+                        UseSkillIf("Summon Crows", UseSkillIf("Hell Spear", skillCooldown("Summon Crows") == 0L));
+                        UseSkillIf("Searing Rain", UseSkillIf("Freezing Earth", skillCooldown("Searing Rain") == 0L));
+                    }
+
+                    if (UseSkillIf("Hell Spear",
+                        (((targeCreature.hpp >= 33) && (me.hpp < 66)) || (getAggroMobs(me).Count > 1)) &&
+                        (me.dist(me.target) <= 8) //only if in range
+                        ))
+                    {
+                        UseSkillIf("Summon Crows", (getAggroMobs(me).Count > 1) || (me.hpp < 50));
+                        UseSkillIf("Arc Lightning", (getAggroMobs(me).Count == 1));
+                    }
+
+                    UseSkillIf("Freezing Arrow");
+                    UseSkillIf("Insidious Whisper", me.dist(me.target) <= 8);
+                    UseSkillIf("Flamebolt", UseSkillIf("Flamebolt", UseSkillIf("Flamebolt")));
+
+                    UseSkillIf("Freezing Earth",
+                        (((targeCreature.hpp >= 33) && (me.hpp < 66)) || (getAggroMobs(me).Count > 1)) &&
+                        (me.dist(me.target) <= 8)); //only if in range
+
+
+                    //BUFF     //While fighting? 
+                    UseSkillIf("Insulating Lens", (buffTime("Insulating Lens (Rank 3)") == 0 && me.hpp < 70));
                 }
-                
-                if (UseSkillIf("Hell Spear",
-                    (((targeCreature.hpp >= 33) && (me.hpp < 66)) || (getAggroMobs(me).Count > 1)) &&
-                    (me.dist(me.target)<=8)        //only if in range
-                    ))
+                catch (Exception ex)
                 {
-                    UseSkillIf("Summon Crows", (getAggroMobs(me).Count > 1)||(me.hpp<50));
-                    UseSkillIf("Arc Lightning", (getAggroMobs(me).Count == 1));
+                    LogEx(ex);   
                 }
-                    
-                UseSkillIf("Freezing Arrow");
-                UseSkillIf("Insidious Whisper", me.dist(me.target) <= 8);
-                UseSkillIf("Flamebolt", UseSkillIf("Flamebolt", UseSkillIf("Flamebolt")));
-
-                UseSkillIf("Freezing Earth",
-                    (((targeCreature.hpp >= 33) && (me.hpp < 66)) || (getAggroMobs(me).Count > 1)) &&
-                    (me.dist(me.target) <= 8));        //only if in range
-
-                                                                              
-                //BUFF     //While fighting? 
-                UseSkillIf("Insulating Lens", (buffTime("Insulating Lens (Rank 2)") == 0 && me.hpp < 70 ));
-
             }
        }
 
@@ -309,14 +309,14 @@ namespace GhostRider
         {
 
             Log("Dead: " + DateTime.Now, "GhRider");
-
+            SetGroupStatus("Farm", false);
             StopAllmove();
             MySleep(1000, 2000);
             
             while (!ResToRespoint())
                 Thread.Sleep(10000);
             while (!SetTarget("Glorious Nui"))
-                MySleep(200, 1000);
+                MySleep(500, 1500);
             
             if (me.target != null) MoveTo(me.target);
 
