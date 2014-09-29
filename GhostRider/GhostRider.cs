@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using ArcheBuddy.Bot.Classes;
 
 namespace GhostRider
@@ -16,7 +18,7 @@ namespace GhostRider
 
         public static string GetPluginVersion()
         {
-            return "0.2.4";
+            return "0.3.0";
         }
 
         public static string GetPluginDescription()
@@ -24,232 +26,18 @@ namespace GhostRider
             return "Lazy Rider Plugin, Optimized for Sorc - Occ - Witch but modifiable for all changing DoRotation, thanks @OUT";
         }
         #endregion
-        //Try to find best mob in farm zone.
-        public Creature GetBestNearestMob(Creature target, double dist=99)
-        {
-            //Creature mob;
-            return getCreatures().AsParallel().ToArray()
-                .Where(obj => 
-                    obj.type == BotTypes.Npc && isAttackable(obj) && //(obj.level - me.level) < 4 && 
-                    (obj.firstHitter == null || obj.firstHitter == me) && isAlive(obj) && 
-                    me.dist(obj) < dist && (hpp(obj) == 100 || obj.aggroTarget == me))
-                    .OrderBy(obj => me.dist(obj))
-                    .FirstOrDefault(mob => mob != null);
-        }
-
-        //Cancel skill if mob which we want to kill already attacked by another player.
-        // not working ... 
-        // function never returns - BY DESIGN this is an independant infinte thread.
-        public void CancelAttacksOnAnothersMobs()
-        {
-            while (true)
-            {
-                if (me.isCasting && me.target != null && me.target.firstHitter != null && me.target.firstHitter != me)
-                    CancelSkill();
-                Thread.Sleep(100);
-            }
-        }
-
-        //Check our buffs
-        public void CheckBuffs()
-        {
-            if (buffTime("Insulating Lens (Rank 3)") == 0 && skillCooldown("Insulating Lens") == 0)
-            {
-                SuspendMoveToBeforeUseSkill(true);
-                UseSkillAndWait("Insulating Lens", true);
-                SuspendMoveToBeforeUseSkill(false);
-            }
-            
-            if (buffTime("Fruit Liquor") == 0 && GetGroupStatus("Eat/Drink"))
-            {
-                UseItemAndWait(17668);
-            }
-            if (buffTime("Fruit Punch") == 0 && GetGroupStatus("Eat/Drink"))
-            {
-                UseItemAndWait(8501);
-            }
-            
-            
-        }
-
-        public bool UseSkillAndWait(string skillName, bool selfTarget = false)
-        {
-            //wait cooldowns first, before we try to cast skill
-            while (me.isCasting || me.isGlobalCooldown)
-                MySleep(50,100);                                        
-            do
-            {
-                if (UseSkill(skillName, true, selfTarget))
-                {                                                                                   
-                    //wait cooldown again, after we start cast skill
-                    while (me.isCasting)
-                        Thread.Sleep(50);
-                    while (me.isGlobalCooldown)
-                        Thread.Sleep(50);
-                    MySleep(50, 150);
-                    return true;
-                }
-            } while (GetLastError() == LastError.AlreadyCasting);    // TST
-
-            if (me.target == null || GetLastError() != LastError.NoLineOfSight) return false;
-            //No line of sight, try come to target.
-                ComeTo(me.target, 10);
-            return false;
-        }
-        /// <summary>
-        ///    Checks if the conditions are met to cast a skill and passes the cast call on.
-        ///         IF cond evaluates to true the skill is cast     
-        /// </summary>
-        /// <param name="skillName">Nmae of Skill to Cast - Beware with the Spelling</param>
-        /// <param name="cond">Cast only if this condition evaluates to true</param>
-        /// <param name="selfTarget">Target myself ? T/F</param>
-        public bool UseSkillIf(string skillName, bool cond = true, bool selfTarget = false)
-        {
-            if (!cond || skillCooldown(skillName) != 0L) return false;
-            try
-            {
-                return (UseSkillAndWait(skillName, selfTarget));
-            }
-            catch(Exception ex){
-                LogEx(ex);
-            }
-            return false;
-        }
-        /// <summary>
-        /// Executes a simple rotation on the recieved target.
-        ///  - Needs a valid target 
-        /// </summary>
-        /// <param name="targeCreature">Target to destroy (hopefully)</param>
-        private void DoRotation(Creature targeCreature)
-        {
-            
-            var aaa = false; //trash value
-
-            while (GetGroupStatus("GhostRider"))
-            {
-
-                try
-                {
-                    if (!targeCreature.isAlive() || !isAttackable(targeCreature))
-                    {
-                        if (getAggroMobs(me).Count == 0)
-                            return;
-
-                        targeCreature = getAggroMobs(me).First();
-                    }
-
-
-                    var a = 0;
-                    while (!SetTarget(targeCreature) && a < 20 && GetGroupStatus("GhostRider"))
-                    {
-                        Thread.Sleep(50);
-                        a++;
-                    }
-
-                    // one of these might throw an ex but the result is the same - retrun  
-                    if (!me.isAlive()) return;
-                    //if (me.target != targeCreature) targeCreature = me.target;
-
-                    // Be careful with spelling
-                    // SKILLS NEED TO BE ORDERED BY IMPORTANCE
-                    // IE: 1st : Heal cond: me.hp <33f
-                    // use: UseSkillIf if you need a  
-
-                    //HEAL
-                    if (UseSkillIf("Enervate", (me.hpp < 50)))
-                    {
-                        Log("Enervate " + me.hpp, "GhRider");
-                        MySleep(100, 300);
-                        if (UseSkillIf("Earthen Grip", (me.hpp < 50)))
-                        {
-                            Log("Earthen " + me.hpp, "GhRider");
-                        }
-                        continue;
-                    }
-                    else
-                    {
-                        UseRegenItems();
-                    }
-                    UseSkillIf("Absorb Lifeforce", (me.hpp < 66));
-
-                    //CLEAN DEBUF
-
-
-                    //FIGHT
-                    //if (angle(me.target, me) > 45 && angle(me.target, me) < 315)
-                    TurnDirectly(me.target); //start by facing target
-
-                    if (getAggroMobs(me).Count > 1 && TargetsWithin(8) > 1 && me.hpp < 75) //AOE First id i am not 100%
-                    {
-                        if (UseSkillIf("Summon Crows", UseSkillIf("Hell Spear", skillCooldown("Summon Crows") == 0L)))
-                            continue;
-                        if (UseSkillIf("Searing Rain", UseSkillIf("Freezing Earth", skillCooldown("Searing Rain") == 0L)))
-                            continue;
-                    }
-
-                    if (UseSkillIf("Hell Spear",
-                        (((targeCreature.hpp >= 33) && (me.hpp < 66)) || (getAggroMobs(me).Count > 1)) &&
-                        (me.dist(me.target) <= 8) //only if in range
-                        ))
-                    {
-                        UseSkillIf("Summon Crows", (getAggroMobs(me).Count > 1) || (me.hpp < 50));
-                        UseSkillIf("Arc Lightning", (getAggroMobs(me).Count == 1));
-                    }
-
-                    UseSkillIf("Freezing Arrow");
-                    UseSkillIf("Insidious Whisper", me.dist(me.target) <= 8);
-                    UseSkillIf("Flamebolt", UseSkillIf("Flamebolt", UseSkillIf("Flamebolt")));
-
-                    UseSkillIf("Freezing Earth",
-                        (((targeCreature.hpp >= 33) && (me.hpp < 66)) || (getAggroMobs(me).Count > 1)) &&
-                        (me.dist(me.target) <= 8)); //only if in range
-
-
-                    //BUFF     //While fighting? 
-                    UseSkillIf("Insulating Lens", (buffTime("Insulating Lens (Rank 3)") == 0 && me.hpp < 70));
-                }
-                catch (Exception ex)
-                {
-                    Log("!!## ROTATIONS","GhRider");
-                    LogEx(ex);
-                }
-            }
-       }
-
-        public void LootMob(Creature deadCreature)
-        {
-            while (deadCreature != null && !isAlive(deadCreature) && isExists(deadCreature) && deadCreature.type == BotTypes.Npc &&
-                        ((Npc)deadCreature).dropAvailable && isAlive())
-                            {
-                                if (me.dist(deadCreature) > 3)
-                                    ComeTo(deadCreature, 1);
-                                PickupAllDrop(deadCreature);
-                            }
-        }
-
-        public bool LootingEnabled
-        {
-            get { return true; }
-        }
-
-        public void PluginStop()
-        {
-            DelGroupStatus("GhostRider");      //Is this thing on or what ?
-            DelGroupStatus("Inventory");       //Open Purses
-            DelGroupStatus("Farm");            //Do i keep on killing mobs ?
-            DelGroupStatus("AFK");             //If AFK is enabled some timings are made very relaxed (ie open a purse a minute or so) 
-            DelGroupStatus("Eat/Drink");  
-        }
-        
 
         public void PluginRun()
         {
-            //new Task(() => { CancelAttacksOnAnothersMobs(); }).Start(); //Starting new thread
+            new Task(CancelAttacksOnAnothersMobs).Start(); 
+            new Task(Watchdog).Start();
+
             SetGroupStatus("GhostRider", false);      //Is this thing on or what ?
             SetGroupStatus("Inventory", false);       //Open Purses
             SetGroupStatus("Farm", false);            //Do i keep on killing mobs ?
             SetGroupStatus("AFK", false);             //If AFK is enabled some timings are made very relaxed (ie open a purse a minute or so) 
             SetGroupStatus("Eat/Drink", false);       //Eat after fighting, take potions during fight, drink bevs as buff
+            SetGroupStatus("Loot", true);
             while (true)
             {
                 try{ if (!me.isAlive())
@@ -294,7 +82,7 @@ namespace GhostRider
                 catch {}
                 foreach (var m in getCreatures().Where(m=>m.dropAvailable && me.dist(m) < 10 ))
                 {
-                    PickupAllDrop(m);
+                    LootMob(m);
                     MySleep(100,333);
                 }                                           
                 CheckBuffs();
@@ -303,7 +91,279 @@ namespace GhostRider
                     SearchForOtherTarget(me.target);
                 if (GetGroupStatus("Inventory")) Processinventory();
             }
+        }    
+        
+        private void DoRotation(Creature targeCreature)
+        {
+            
+            var aaa = false; //trash value
+
+            while (GetGroupStatus("GhostRider"))
+            {
+
+                try
+                {
+                    if (getAggroMobs(getMount()).Count > 0)
+                        targeCreature = getAggroMobs(getMount()).First();
+
+                    if (!targeCreature.isAlive() || !isAttackable(targeCreature))
+                    {
+                        if (getAggroMobs(me).Count == 0 && getAggroMobs(getMount()).Count==0)
+                            return;
+                        if (getAggroMobs(getMount()).Count > 0)
+                            targeCreature = getAggroMobs(getMount()).First();
+                        if (getAggroMobs(me).Count > 0)
+                            targeCreature = getAggroMobs(me).First();
+                    }
+
+
+                    var a = 0;
+                    while (!SetTarget(targeCreature) && GetGroupStatus("GhostRider"))
+                    {
+                        Thread.Sleep(50);
+                        a++;
+                        if (a < 20) continue;
+                        PlaySound("enemy.wav");
+                        SetGroupStatus("GhostRider",false); //after 20 loops dont exit the loop && stop the plugin
+                    }
+
+                    // one of these might throw an ex but the result is the same - retrun  
+                    if (!me.isAlive()) return;
+
+                    // Be careful with spelling
+                    // SKILLS NEED TO BE ORDERED BY IMPORTANCE
+                    // IE: 1st : Heal cond: me.hp <33f
+                    // use: UseSkillIf if you need a  
+
+                    //HEAL
+                    if (UseSkillIf("Enervate", (me.hpp < 50)))
+                    {
+                        Log("Enervate " + me.hpp, "GhRider");
+                        MySleep(100, 300);
+                        if (UseSkillIf("Earthen Grip", (me.hpp < 50)))
+                        {
+                            Log("Earthen " + me.hpp, "GhRider");
+                        }
+                        continue;
+                    }
+                    else
+                    {
+                        UseRegenItems();
+                    }
+                    UseSkillIf("Absorb Lifeforce", (me.hpp < 66));
+
+                    //CLEAN DEBUF
+
+
+                    //FIGHT
+                    //if (angle(me.target, me) > 45 && angle(me.target, me) < 315)
+                    
+
+                    if (getAggroMobs(me).Count > 1 && TargetsWithin(8) > 1 && me.hpp < 75) //AOE First id i am not 100%
+                    {
+                        if (UseSkillIf("Summon Crows", 
+                            UseSkillIf("Hell Spear", skillCooldown("Summon Crows") == 0L)))
+                            continue;
+                        if (UseSkillIf("Searing Rain", 
+                            UseSkillIf("Freezing Earth", skillCooldown("Searing Rain") == 0L)))
+                            continue;
+                    }
+
+                    if (UseSkillIf("Hell Spear",
+                        (((targeCreature.hpp >= 33) && (me.hpp < 66)) || (getAggroMobs(me).Count > 1)) &&
+                        (me.dist(me.target) <= 8) //only if in range
+                        ))
+                    {
+                        UseSkillIf("Summon Crows", (getAggroMobs(me).Count > 1) || (me.hpp < 50));
+                        UseSkillIf("Arc Lightning", (getAggroMobs(me).Count == 1));
+                    }
+
+                    UseSkillIf("Mana Force", me.hpp < 75 && me.dist(me.target) <= 5);
+                    UseSkillIf("Freezing Arrow");
+                    UseSkillIf("Insidious Whisper", me.dist(me.target) <= 8);
+                    
+                    UseSkillIf("Freezing Earth",
+                        (((targeCreature.hpp >= 33) && (me.hpp < 66)) || (getAggroMobs(me).Count > 1)) &&
+                        (me.dist(me.target) <= 8)); //only if in range
+                    
+                    //Do FA-Fb-Fb-Fb OR Fb-Fb-Fb if FA is inCoolDown Try to combo with ^ skill
+                    UseSkillIf("Flamebolt", 
+                        UseSkillIf("Flamebolt", 
+                        UseSkillIf("Flamebolt"),
+                        UseSkillIf("Freezing Arrow") || skillCooldown("Freezing Arrow") > 0L));
+
+                    //BUFF     //While fighting? 
+                    UseSkillIf("Insulating Lens", (buffTime("Insulating Lens (Rank 3)") == 0 && me.hpp < 70));
+                }
+                catch (Exception ex)
+                {
+                    PlaySound("targeting.wav");
+                    Log("!!## ROTATIONS","GhRider");
+                    LogEx(ex);
+                }
+            }
+       }
+
+        //Try to find best mob in farm zone.
+        public Creature GetBestNearestMob(Creature target, double dist=99)
+        {
+            //Creature mob;
+            return getCreatures().AsParallel().ToArray()
+                .Where(obj => 
+                    obj.type == BotTypes.Npc && isAttackable(obj) && //(obj.level - me.level) < 4 && 
+                    (obj.firstHitter == null || obj.firstHitter == me) && isAlive(obj) && 
+                    me.dist(obj) < dist && (hpp(obj) == 100 || obj.aggroTarget == me))
+                    .OrderBy(obj => me.dist(obj))
+                    .FirstOrDefault(mob => mob != null);
         }
+           
+        /// <summary>
+        /// Cancel skill if mob which we want to kill already attacked by another player.
+        /// not working ... 
+        /// It runs as an independant thread checking GR status every 200ms
+        /// function never returns - BY DESIGN this is an independant infinte thread.
+        /// </summary>
+        public void CancelAttacksOnAnothersMobs()
+        {
+            while (true)
+            {
+                while (GetGroupStatus("GhostRider"))
+                {
+                    if (me.isPartyMember) continue;
+                    if (me.target != null && me.target.firstHitter != null && me.target.firstHitter != me)
+                        if (me.isCasting) CancelSkill();
+                    Thread.Sleep(200);
+                }
+                Thread.Sleep(200);
+            }
+        }
+
+        /// <summary>
+        /// This is an overseer, if i disable the main rider function STOP everything.
+        /// It runs as an independant thread checking GR status every 200ms
+        /// function never returns - BY DESIGN this is an independant infinte thread.
+        /// </summary>
+        public void Watchdog()
+        {
+            while (true)           // this one has to be endless
+            {
+                while (GetGroupStatus("GhostRider"))
+                {
+                    Thread.Sleep(200); // 5 times a sec should be enough
+                }
+                CancelSkill();
+                CancelTarget();
+                StopAllmove();
+                
+                Thread.Sleep(200);
+            }
+        }
+
+
+        //Check our buffs
+        public void CheckBuffs()
+        {
+            if (buffTime("Insulating Lens (Rank 3)") == 0 && skillCooldown("Insulating Lens") == 0)
+            {
+                SuspendMoveToBeforeUseSkill(true);
+                UseSkillAndWait("Insulating Lens", true);
+                SuspendMoveToBeforeUseSkill(false);
+            }
+            
+            if (buffTime("Fruit Liquor") == 0 && GetGroupStatus("Eat/Drink"))
+            {
+                UseItemAndWait(17668);
+            }
+            if (buffTime("Fruit Punch") == 0 && GetGroupStatus("Eat/Drink"))
+            {
+                UseItemAndWait(8501);
+            }
+            
+            
+        }
+
+        public int CheckDebuffs(Player player)
+        {
+            return 0;
+        }
+
+        public bool UseSkillAndWait(string skillName, bool selfTarget = false)
+        {
+            //wait cooldowns first, before we try to cast skill
+            while ((me.isCasting || me.isGlobalCooldown) && GetGroupStatus("GhostRider"))
+                MySleep(50,100);                                        
+            do
+            {
+                if (UseSkill(skillName, true, selfTarget))
+                {                                                                                   
+                    //wait cooldown again, after we start cast skill
+                    while (me.isCasting && GetGroupStatus("GhostRider"))
+                        Thread.Sleep(50);
+                    while (me.isGlobalCooldown && GetGroupStatus("GhostRider"))
+                        Thread.Sleep(50);
+                    MySleep(50, 150);
+                    return true;
+                }
+            } while (GetLastError() == LastError.AlreadyCasting && GetGroupStatus("GhostRider"));    // TST
+
+            if (me.target == null || GetLastError() != LastError.NoLineOfSight) return false;
+            //No line of sight, try come to target.
+                ComeTo(me.target, 10);
+            return false;
+        }
+        /// <summary>
+        ///    Checks if the conditions are met to cast a skill and passes the cast call on.
+        ///         IF cond evaluates to true the skill is cast     
+        /// </summary>
+        /// <param name="skillName">Nmae of Skill to Cast - Beware with the Spelling</param>
+        /// <param name="cond">Cast only if this condition evaluates to true</param>
+        /// <param name="selfTarget">Target myself ? T/F</param>
+        public bool UseSkillIf(string skillName, bool cond = true, bool selfTarget = false)
+        {
+            if (!cond || skillCooldown(skillName) != 0L || !GetGroupStatus("GhostRider")) return false;
+            try
+            {
+                return (UseSkillAndWait(skillName, selfTarget));
+            }
+            catch(Exception ex){
+                LogEx(ex);
+            }
+            return false;
+        }
+        /// <summary>
+        /// Executes a simple rotation on the recieved target.
+        ///  - Needs a valid target 
+        /// </summary>
+        /// <param name="targeCreature">Target to destroy (hopefully)</param>
+
+        public void LootMob(Creature deadCreature)
+        {
+            if (!GetGroupStatus("Loot")) return;
+            while (deadCreature != null && !isAlive(deadCreature) && isExists(deadCreature) &&
+                   deadCreature.type == BotTypes.Npc &&
+                   ((Npc) deadCreature).dropAvailable && isAlive())
+            {
+                if (me.dist(deadCreature) > 10)
+                    ComeTo(deadCreature, 5);
+                PickupAllDrop(deadCreature);
+            }
+        }
+
+        public bool LootingEnabled
+        {
+            get { return true; }
+        }
+
+        public void PluginStop()
+        {
+            DelGroupStatus("GhostRider");      //Is this thing on or what ?
+            DelGroupStatus("Inventory");       //Open Purses
+            DelGroupStatus("Farm");            //Do i keep on killing mobs ?
+            DelGroupStatus("AFK");             //If AFK is enabled some timings are made very relaxed (ie open a purse a minute or so) 
+            DelGroupStatus("Eat/Drink");  
+        }
+        
+
 
         private void DoAFK()
         {
@@ -317,13 +377,13 @@ namespace GhostRider
             SetGroupStatus("Farm", false);
             StopAllmove();
             MySleep(1000, 2000);
-            
-            while (!ResToRespoint())
+
+            while (!ResToRespoint() && GetGroupStatus("GhostRider"))
                 Thread.Sleep(1000);
-            while (!SetTarget("Glorious Nui"))
+            while (!SetTarget("Glorious Nui") && GetGroupStatus("GhostRider"))
                 MySleep(1500, 2500);
             
-            if (me.target != null) MoveTo(me.target);
+            if (me.target != null) ComeTo(me.target,5);
 
             RestoreExp();
             while ((me.isGlobalCooldown || me.isCasting))
