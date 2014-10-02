@@ -78,6 +78,8 @@ namespace GhostRider
             29203, 29204, 29205, 29206, 29207
         };
 
+        private int _dist = 40;
+
         public bool LootingEnabled
         {
             get { return true; }
@@ -103,7 +105,7 @@ namespace GhostRider
 
                     if (!GetGroupStatus("GhostRider") || !me.isAlive())
                     {
-                        Thread.Sleep(200);
+                        Thread.Sleep(100);
                         continue;
                     }
                 }
@@ -138,6 +140,24 @@ namespace GhostRider
 
                         MySleep(100, 333);
                     }
+
+                    //if (!me.isAlive()) continue;
+                    try
+                    {
+                        if (me.target != null && !me.target.isAlive())
+                            LootMob(me.target);
+                    }
+                    catch {}
+                    foreach (Creature m in getCreatures().Where(m => m.dropAvailable && me.dist(m) < 10))
+                    {
+                        LootMob(m);
+                        MySleep(100, 333);
+                    }
+                    CheckBuffs();
+                    UseRegenItems();
+                    if (me.hpp > 66 && me.mpp > 50)
+                        SearchForOtherTarget(me.target);
+                    if (GetGroupStatus("Inventory")) Processinventory();
                 }
                 catch (Exception e)
                 {
@@ -145,25 +165,6 @@ namespace GhostRider
                     Log("!!## MAIN LOOP", "GhRider");
                     LogEx(e);
                 }
-                //if (!me.isAlive()) continue;
-                try
-                {
-                    if (me.target != null && !me.target.isAlive())
-                        LootMob(me.target);
-                }
-                catch
-                {
-                }
-                foreach (Creature m in getCreatures().Where(m => m.dropAvailable && me.dist(m) < 10))
-                {
-                    LootMob(m);
-                    MySleep(100, 333);
-                }
-                CheckBuffs();
-                UseRegenItems();
-                if (me.hpp > 66 && me.mpp > 50)
-                    SearchForOtherTarget(me.target);
-                if (GetGroupStatus("Inventory")) Processinventory();
             }
         }
 
@@ -203,7 +204,6 @@ namespace GhostRider
                     }
 
                     // one of these might throw an ex but the result is the same - retrun  
-
 
                     // Be careful with spelling
                     // SKILLS NEED TO BE ORDERED BY IMPORTANCE
@@ -279,15 +279,16 @@ namespace GhostRider
         }
 
         //Try to find best mob in farm zone.
-        public Creature GetBestNearestMob(Creature target, double dist = 99)
+        public Creature GetBestNearestMob(Creature target, double dist = 0)
         {
+            if (dist == 0) dist = _dist;
             //Creature mob;
             return getCreatures().AsParallel().ToArray()
                 .Where(obj =>
                     obj.type == BotTypes.Npc 
                     && isAttackable(obj) && //(obj.level - me.level) < 4 && 
                     (obj.firstHitter == null || obj.firstHitter == me || obj.aggroTarget == me)
-                    && isAlive(obj) 
+                    && isAlive(obj)
                     && me.dist(obj) < dist)
                 .OrderBy(obj => me.dist(obj))
                 .FirstOrDefault(mob => mob != null);
@@ -309,7 +310,26 @@ namespace GhostRider
                     {
                         if (me.isPartyMember) continue;
                         if (me.target != null && me.target.firstHitter != null && me.target.firstHitter != me)
-                        if (me.isCasting) CancelSkill();
+                        {
+                            if (me.isCasting) CancelSkill();
+                            var oldtarget = me.target;
+                            
+                            CancelTarget();
+                            SetTarget(
+                                getCreatures().AsParallel().ToArray()
+                                    .Where(obj =>
+                                        obj != oldtarget &&
+                                        obj.type == BotTypes.Npc
+                                        && isAttackable(obj) && //(obj.level - me.level) < 4 && 
+                                        (obj.firstHitter == null || obj.firstHitter == me || obj.aggroTarget == me)
+                                        && isAlive(obj)
+                                        && me.dist(obj) < _dist)
+                                    .OrderBy(obj => me.dist(obj))
+                                    .FirstOrDefault(mob => mob != null)
+                                );
+                        }
+                         
+
                         Thread.Sleep(200);
                     }
                     catch (Exception ex)
